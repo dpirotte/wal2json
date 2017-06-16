@@ -44,9 +44,7 @@ typedef struct
 	bool		include_timestamp;	/* include transaction timestamp */
 	bool		include_schemas;	/* qualify tables */
 	bool		include_types;		/* include data types */
-	bool		include_per_change_xids;
-	bool		include_per_change_lsn;
-	bool		include_per_change_timestamp;
+	bool		include_per_change_metadata;
 
 	bool		pretty_print;		/* pretty-print JSON? */
 	bool		write_in_chunks;	/* write in chunks? */
@@ -119,9 +117,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 	data->pretty_print = false;
 	data->write_in_chunks = false;
 	data->include_lsn = false;
-	data->include_per_change_xids = false;
-	data->include_per_change_lsn = false;
-	data->include_per_change_timestamp = false;
+	data->include_per_change_metadata = false;
 
 	data->nr_changes = 0;
 
@@ -170,6 +166,19 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 				data->include_schemas = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->include_schemas))
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("could not parse value \"%s\" for parameter \"%s\"",
+							 strVal(elem->arg), elem->defname)));
+		}
+		else if (strcmp(elem->defname, "include-per-change-metadata") == 0)
+		{
+			if (elem->arg == NULL)
+			{
+				elog(LOG, "include-per-change-metadata argument is null");
+				data->include_schemas = true;
+			}
+			else if (!parse_bool(strVal(elem->arg), &data->include_per_change_metadata))
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("could not parse value \"%s\" for parameter \"%s\"",
@@ -795,30 +804,33 @@ pg_decode_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 			Assert(false);
 	}
 
-	if (data->include_xids)
+	if (data->include_per_change_metadata)
 	{
-		if (data->pretty_print)
-			appendStringInfo(ctx->out, "\t\t\t\"xid\": %u,\n", txn->xid);
-		else
-			appendStringInfo(ctx->out, "\"xid\":%u,", txn->xid);
-	}
+		if (data->include_xids)
+		{
+			if (data->pretty_print)
+				appendStringInfo(ctx->out, "\t\t\t\"xid\": %u,\n", txn->xid);
+			else
+				appendStringInfo(ctx->out, "\"xid\":%u,", txn->xid);
+		}
 
-	if(data->include_lsn)
-	{
-		char *lsn_str = DatumGetCString(DirectFunctionCall1(pg_lsn_out, change->lsn));
+		if(data->include_lsn)
+		{
+			char *lsn_str = DatumGetCString(DirectFunctionCall1(pg_lsn_out, change->lsn));
 
-		if(data->pretty_print)
-			appendStringInfo(ctx->out, "\t\t\t\"lsn\": \"%s\",\n", lsn_str);
-		else
-			appendStringInfo(ctx->out, "\"lsn\":\"%s\",", lsn_str);
-	}
+			if(data->pretty_print)
+				appendStringInfo(ctx->out, "\t\t\t\"lsn\": \"%s\",\n", lsn_str);
+			else
+				appendStringInfo(ctx->out, "\"lsn\":\"%s\",", lsn_str);
+		}
 
-	if (data->include_timestamp)
-	{
-		if (data->pretty_print)
-			appendStringInfo(ctx->out, "\t\t\t\"timestamp\": \"%s\",\n", timestamptz_to_str(txn->commit_time));
-		else
-			appendStringInfo(ctx->out, "\"timestamp\":\"%s\",", timestamptz_to_str(txn->commit_time));
+		if (data->include_timestamp)
+		{
+			if (data->pretty_print)
+				appendStringInfo(ctx->out, "\t\t\t\"timestamp\": \"%s\",\n", timestamptz_to_str(txn->commit_time));
+			else
+				appendStringInfo(ctx->out, "\"timestamp\":\"%s\",", timestamptz_to_str(txn->commit_time));
+		}
 	}
 
 
