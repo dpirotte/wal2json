@@ -978,12 +978,39 @@ pg_decode_message(LogicalDecodingContext *ctx,
 	if(data->pretty_print)
 	{
 		appendStringInfoString(ctx->out, "\t\t\t\"kind\": \"message\",\n");
+
+		if (data->include_per_change_metadata)
+		{
+			if (data->include_xids)
+				appendStringInfo(ctx->out, "\t\t\t\"xid\": %u,\n", txn->xid);
+
+			if(data->include_lsn)
+			{
+				char *lsn_str = DatumGetCString(DirectFunctionCall1(pg_lsn_out, message_lsn));
+				appendStringInfo(ctx->out, "\t\t\t\"lsn\": \"%s\",\n", lsn_str);
+			}
+
+			if (data->include_timestamp)
+				appendStringInfo(ctx->out, "\t\t\t\"timestamp\": \"%s\",\n", timestamptz_to_str(txn->commit_time));
+		}
+
 		appendStringInfo(ctx->out, "\t\t\t\"transactional\": \"%d\",\n", transactional);
 		appendStringInfoString(ctx->out, "\t\t\t\"prefix\": ");
 	}
 	else
 	{
 		appendStringInfoString(ctx->out, "\"kind\":\"message\",");
+			if (data->include_xids)
+				appendStringInfo(ctx->out, "\"xid\":%u,", txn->xid);
+
+			if(data->include_lsn)
+			{
+				char *lsn_str = DatumGetCString(DirectFunctionCall1(pg_lsn_out, message_lsn));
+				appendStringInfo(ctx->out, "\"lsn\":\"%s\",", lsn_str);
+			}
+
+			if (data->include_timestamp)
+				appendStringInfo(ctx->out, "\"timestamp\":\"%s\",", timestamptz_to_str(txn->commit_time));
 		appendStringInfo(ctx->out, "\"transactional\":\"%d\",", transactional);
 		appendStringInfoString(ctx->out, "\"prefix\":");
 	}
