@@ -21,8 +21,6 @@ RUN pg_ctlcluster 9.6 main start && \
   su postgres -c "createuser -d -r -s root" && \
   pg_ctlcluster 9.6 main stop --force
 
-ADD . /usr/local/src/wal2json
-
 WORKDIR /usr/local/src/wal2json
 
 CMD pg_ctlcluster 9.6 main start && \
