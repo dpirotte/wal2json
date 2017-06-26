@@ -7,6 +7,12 @@ PG_CONFIG = pg_config
 PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
+docker:
+	docker build -t wal2json .
+
+dockerbuild: docker
+	docker run -i -v $(PWD):/usr/local/src/wal2json -t wal2json
+
 # make installcheck
 #
 # It can be run but you need to add the following parameters to
