@@ -1,4 +1,6 @@
 MODULES = wal2json
+PG_VERSION ?= 9.6
+PGPORT ?= 5436
 
 REGRESS = cmdline insert1 update1 update2 update3 update4 delete1 delete2 \
 		  delete3 delete4 savepoint specialvalue toast bytea
@@ -8,7 +10,7 @@ PGXS := $(shell $(PG_CONFIG) --pgxs)
 include $(PGXS)
 
 dockerbuild:
-	docker run -i -v $(PWD):/usr/local/src/build -t dpirotte/pg_ext_builder
+	docker run --rm -i -v $(PWD):/build -w /build -t dpirotte/postgres-dev:jessie bash -c "pg_ctlcluster ${PG_VERSION} main start ; make; make install ; make installcheck PGPORT=${PGPORT}"
 
 # make installcheck
 #
